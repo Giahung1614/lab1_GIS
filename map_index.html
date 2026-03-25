@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Đồ án GIS Nam Bộ - Nhóm 2 - IE402</title>
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+
+  <script src="./location_data/tinh.js"></script>
+  <script src="./location_data/tuyen_duong.js"></script>
+  <script src="./location_data/dai_hoc.js"></script>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.33/esri/themes/light/main.css" />
+  <script src="https://js.arcgis.com/4.33/"></script>
+  <script>
+    require([
+      "esri/Map", "esri/views/MapView", "esri/Graphic", "esri/layers/GraphicsLayer",
+      "esri/geometry/Polygon", "esri/geometry/geometryEngine"
+    ], function (Map, MapView, Graphic, GraphicsLayer, Polygon, geometryEngine) {
+
+      var map = new Map({ basemap: "topo-vector" });
+      var view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [106.804385, 10.870164], // Tọa độ khu vực Làng Đại học (Thủ Đức)
+        zoom: 9 // Chỉnh zoom xa ra để thấy hết được siêu đô thị TPHCM
+      });
+
+      var graphicsLayer = new GraphicsLayer();
+      map.add(graphicsLayer);
+
+      var createGraphic = function (data) {
+        var geometry = {};
+        if (data.type === "point") geometry = { type: "point", longitude: data.longitude, latitude: data.latitude };
+        else if (data.type === "polyline") geometry = { type: "polyline", paths: data.paths };
+        else if (data.type === "polygon") {
+
+          // --- BỘ LỌC TỌA ĐỘ THÔNG MINH ---
+          // Tự động đào sâu vào mọi lớp ngoặc vuông (Polygon hay MultiPolygon đều cân hết)
+          var allRings = [];
+          function extractRings(arr) {
+            if (arr.length > 0 && typeof arr[0][0] === "number") {
+              allRings.push(arr); // Chạm tới đáy tọa độ -> thu thập
+            } else if (arr.length > 0 && Array.isArray(arr[0])) {
+              arr.forEach(extractRings); // Chưa tới đáy -> đào tiếp
+            }
+          }
+          extractRings(data.rings);
+          // --------------------------------
+
+          if (data.mergeRings && allRings.length > 0) {
+            var polys = allRings.map(function (r) {
+              return new Polygon({ type: "polygon", rings: [r] });
+            });
+            geometry = geometryEngine.union(polys); // Nung chảy mượt mà
+          } else {
+            geometry = { type: "polygon", rings: allRings };
+          }
+        }
+
+        return new Graphic({ geometry: geometry, symbol: data.symbol, attributes: data, popupTemplate: data.popupTemplate });
+      };
+
+      view.when(function () {
+        if (typeof tinh_data !== 'undefined' && tinh_data.polygons) {
+          tinh_data.polygons.forEach(function (d) { graphicsLayer.add(createGraphic(d)); });
+        }
+        if (typeof tuyen_duong_data !== 'undefined' && tuyen_duong_data.lines) {
+          tuyen_duong_data.lines.forEach(function (d) { graphicsLayer.add(createGraphic(d)); });
+        }
+        if (typeof dai_hoc_data !== 'undefined' && dai_hoc_data.points) {
+          dai_hoc_data.points.forEach(function (d) { graphicsLayer.add(createGraphic(d)); });
+        }
+      });
+
+    });
+  </script>
+</head>
+
+<body>
+  <div id="viewDiv"></div>
+</body>
+
+</html>
