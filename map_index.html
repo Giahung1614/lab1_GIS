@@ -17,8 +17,22 @@
   </style>
 
   <script src="./location_data/tinh.js"></script>
-  <script src="./location_data/tuyen_duong.js"></script>
   <script src="./location_data/dai_hoc.js"></script>
+
+  <script src="./location_data/ql.js"></script>
+  <script src="./location_data/ql1.js"></script>
+  <script src="./location_data/ql2.js"></script>
+  <script src="./location_data/ql3.js"></script>
+  <script src="./location_data/ql4.js"></script>
+  <script src="./location_data/ql5.js"></script>
+  <script src="./location_data/ql6.js"></script>
+  <script src="./location_data/ql7.js"></script>
+  <script src="./location_data/ql8.js"></script>
+  <script src="./location_data/ql9.js"></script>
+  <script src="./location_data/ql10.js"></script>
+  <script src="./location_data/ql11.js"></script>
+  <script src="./location_data/ql12.js"></script>
+  <script src="./location_data/ql51.js"></script>
 
   <link rel="stylesheet" href="https://js.arcgis.com/4.33/esri/themes/light/main.css" />
   <script src="https://js.arcgis.com/4.33/"></script>
@@ -32,55 +46,77 @@
       var view = new MapView({
         container: "viewDiv",
         map: map,
-        center: [106.804385, 10.870164], // Tọa độ khu vực Làng Đại học (Thủ Đức)
-        zoom: 9 // Chỉnh zoom xa ra để thấy hết được siêu đô thị TPHCM
+        center: [106.804385, 10.870164],
+        zoom: 9
       });
 
       var graphicsLayer = new GraphicsLayer();
       map.add(graphicsLayer);
 
+      // HÀM TẠO ĐỐI TƯỢNG BẢN ĐỒ
       var createGraphic = function (data) {
         var geometry = {};
         if (data.type === "point") geometry = { type: "point", longitude: data.longitude, latitude: data.latitude };
         else if (data.type === "polyline") geometry = { type: "polyline", paths: data.paths };
         else if (data.type === "polygon") {
-
-          // --- BỘ LỌC TỌA ĐỘ THÔNG MINH ---
-          // Tự động đào sâu vào mọi lớp ngoặc vuông (Polygon hay MultiPolygon đều cân hết)
           var allRings = [];
           function extractRings(arr) {
             if (arr.length > 0 && typeof arr[0][0] === "number") {
-              allRings.push(arr); // Chạm tới đáy tọa độ -> thu thập
+              allRings.push(arr);
             } else if (arr.length > 0 && Array.isArray(arr[0])) {
-              arr.forEach(extractRings); // Chưa tới đáy -> đào tiếp
+              arr.forEach(extractRings);
             }
           }
           extractRings(data.rings);
-          // --------------------------------
 
           if (data.mergeRings && allRings.length > 0) {
-            var polys = allRings.map(function (r) {
-              return new Polygon({ type: "polygon", rings: [r] });
-            });
-            geometry = geometryEngine.union(polys); // Nung chảy mượt mà
+            var polys = allRings.map(function (r) { return new Polygon({ type: "polygon", rings: [r] }); });
+            var bufferedPolys = polys.map(function (p) { return geometryEngine.buffer(p, 0.0002); });
+            geometry = geometryEngine.union(bufferedPolys);
           } else {
             geometry = { type: "polygon", rings: allRings };
           }
         }
-
         return new Graphic({ geometry: geometry, symbol: data.symbol, attributes: data, popupTemplate: data.popupTemplate });
       };
 
       view.when(function () {
+
+        // 1. VẼ 8 TỈNH
         if (typeof tinh_data !== 'undefined' && tinh_data.polygons) {
           tinh_data.polygons.forEach(function (d) { graphicsLayer.add(createGraphic(d)); });
         }
-        if (typeof tuyen_duong_data !== 'undefined' && tuyen_duong_data.lines) {
-          tuyen_duong_data.lines.forEach(function (d) { graphicsLayer.add(createGraphic(d)); });
-        }
+
+        // 2. VẼ 14 TUYẾN ĐƯỜNG
+        var danh_sach_duong = [
+          typeof ql_data !== 'undefined' ? ql_data : null,
+          typeof ql1_data !== 'undefined' ? ql1_data : null,
+          typeof ql2_data !== 'undefined' ? ql2_data : null,
+          typeof ql3_data !== 'undefined' ? ql3_data : null,
+          typeof ql4_data !== 'undefined' ? ql4_data : null,
+          typeof ql5_data !== 'undefined' ? ql5_data : null,
+          typeof ql6_data !== 'undefined' ? ql6_data : null,
+          typeof ql7_data !== 'undefined' ? ql7_data : null,
+          typeof ql8_data !== 'undefined' ? ql8_data : null,
+          typeof ql9_data !== 'undefined' ? ql9_data : null,
+          typeof ql10_data !== 'undefined' ? ql10_data : null,
+          typeof ql11_data !== 'undefined' ? ql11_data : null,
+          typeof ql12_data !== 'undefined' ? ql12_data : null,
+          typeof ql51_data !== 'undefined' ? ql51_data : null
+        ];
+
+        danh_sach_duong.forEach(function (duong_hien_tai) {
+          // Chỉ vẽ khi mảng tọa độ (paths) có dữ liệu 
+          if (duong_hien_tai !== null && duong_hien_tai.paths && duong_hien_tai.paths.length > 0) {
+            graphicsLayer.add(createGraphic(duong_hien_tai));
+          }
+        });
+
+        // 3. VẼ ĐẠI HỌC
         if (typeof dai_hoc_data !== 'undefined' && dai_hoc_data.points) {
           dai_hoc_data.points.forEach(function (d) { graphicsLayer.add(createGraphic(d)); });
         }
+
       });
 
     });
